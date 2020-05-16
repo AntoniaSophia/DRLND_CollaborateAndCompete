@@ -27,8 +27,9 @@ class Actor(nn.Module):
         super(Actor, self).__init__()
         self.seed = torch.manual_seed(seed)
 
-        self.fc1 = nn.Linear(state_size, fc1_units)
-        self.bn1 = nn.BatchNorm1d(fc1_units)
+        self.fc1 = nn.Linear(state_size * 2, fc1_units)
+        #self.bn1 = nn.BatchNorm1d(fc1_units)
+
         self.fc2 = nn.Linear(fc1_units, fc2_units)
         self.fc3 = nn.Linear(fc2_units, action_size)
         self.reset_parameters()
@@ -40,7 +41,7 @@ class Actor(nn.Module):
 
     def forward(self, state):
         """Build an actor (policy) network that maps states -> actions."""
-        x = F.relu(self.bn1(self.fc1(state)))
+        x = F.relu(self.fc1(state))
         x = F.relu(self.fc2(x))
         return F.tanh(self.fc3(x))
 
@@ -61,14 +62,12 @@ class Critic(nn.Module):
         super(Critic, self).__init__()
         self.seed = torch.manual_seed(seed)
 
-        self.fcs1 = nn.Linear(state_size, fcs1_units)
-        self.bn1 = nn.BatchNorm1d(fcs1_units)
-        self.fc2 = nn.Linear(fcs1_units+action_size, fc2_units)
+        self.fcs1 = nn.Linear(state_size * 2, fcs1_units)
+        self.fc2 = nn.Linear(fcs1_units+action_size*2, fc2_units)
         self.fc3 = nn.Linear(fc2_units, 1)
 
-        self.fcs4 = nn.Linear(state_size, fcs1_units)
-        self.bn2 = nn.BatchNorm1d(fcs1_units)
-        self.fc5 = nn.Linear(fcs1_units+action_size, fc2_units)
+        self.fcs4 = nn.Linear(state_size * 2, fcs1_units)
+        self.fc5 = nn.Linear(fcs1_units+action_size*2, fc2_units)
         self.fc6 = nn.Linear(fc2_units, 1)
 
         self.reset_parameters()
@@ -85,11 +84,11 @@ class Critic(nn.Module):
     def forward(self, state, action):
         """Build a critic (value) network that maps (state, action) pairs -> Q-values."""
         # TD3 --> Using a pair of critic networks (The twin part of the title)
-        xs1 = F.relu(self.bn1(self.fcs1(state)))
+        xs1 = F.relu(self.fcs1(state))
         x1 = torch.cat((xs1, action), dim=1)
         x1 = F.relu(self.fc2(x1))
 
-        xs2 = F.relu(self.bn2(self.fcs4(state)))
+        xs2 = F.relu(self.fcs4(state))
         x2 = torch.cat((xs2, action), dim=1)
         x2 = F.relu(self.fc5(x2))
 
@@ -98,7 +97,7 @@ class Critic(nn.Module):
     def Q1(self, state, action):
         """Build a critic (value) network that maps (state, action) pairs -> Q-values."""
         # This is just the first critic network
-        xs1 = F.relu(self.bn1(self.fcs1(state)))
+        xs1 = F.relu(self.fcs1(state))
         x1 = torch.cat((xs1, action), dim=1)
         x1 = F.relu(self.fc2(x1))
 
