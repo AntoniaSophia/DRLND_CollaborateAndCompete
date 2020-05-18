@@ -11,8 +11,8 @@ import torch.optim as optim
 
 from FifoMemory import FifoMemory
 
-BUFFER_SIZE = int(1e6)  # replay buffer size
-BATCH_SIZE = 128        # minibatch size
+BUFFER_SIZE = int(1e5)  # replay buffer size
+BATCH_SIZE = 64        # minibatch size
 GAMMA = 0.99            # discount factor
 TAU = 1e-3              # for soft update of target parameters
 LR_ACTOR = 1e-3         # learning rate of the actor
@@ -22,7 +22,7 @@ LEARN_EVERY = 20        # learning timestep interval
 LEARN_NUM = 10          # number of learning passes
 OU_SIGMA = 0.2          # Ornstein-Uhlenbeck noise parameter
 OU_THETA = 0.15         # Ornstein-Uhlenbeck noise parameter
-EPSILON = 1.0           # explore->exploit noise process added to act step
+EPSILON = 5.0           # explore->exploit noise process added to act step
 EPSILON_DECAY = 1e-6    # decay rate for noise process
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -56,7 +56,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 class AgentTD3():
     """Interacts with and learns from the environment."""
 
-    def __init__(self, state_size, action_size, agents_size,  random_seed):
+    def __init__(self, state_size, action_size, agent_number, random_seed):
         """Initialize an Agent object.
 
         Params
@@ -67,7 +67,7 @@ class AgentTD3():
         """
 
         # Store parameters
-        self.agents_size = agents_size
+        self.agent_number = agent_number
         self.state_size = state_size
         self.action_size = action_size
         self.seed = random.seed(random_seed)
@@ -85,46 +85,49 @@ class AgentTD3():
         self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=LR_CRITIC, weight_decay=WEIGHT_DECAY)
 
         # Noise process
-        self.noise = OUNoise(self.agents_size, random_seed)
+        self.noise = OUNoise(self.action_size, random_seed)
 
         # Replay memory
         self.memory = FifoMemory(BUFFER_SIZE, BATCH_SIZE)
         # Short term memory contains only 1/100 of the complete memory and the most recent samples
-        self.memory_short = FifoMemory(int(BUFFER_SIZE/100), int(BATCH_SIZE))
+        self.memory_short = FifoMemory(5, 5)
+        self.memory_success = FifoMemory(int(BUFFER_SIZE/10), int(BATCH_SIZE/2))
 
-    def step(self, state, action, reward, next_state, done, timestep, agent_number):
+        print("Agent " , self.agent_number , " successfully created...")
+
+    def step(self, state, action, reward, next_state, done, timestep):
         """Save experience in replay memory, and use random sample from buffer to learn."""
         # Save experience / reward
         self.memory.add(state, action, reward, next_state, done)
         self.memory_short.add(state, action, reward, next_state, done)
 
-        # Learn at defined interval, if enough samples are available in memory
-        # HINT from Udacity "benchmark": learn every 20 timesteps and train 10 samples
-        if len(self.memory) > BATCH_SIZE and timestep % LEARN_EVERY == 0:
-            for _ in range(LEARN_NUM):
+        if (reward > 0):
+            for i in range(len(self.memory_short)):
+                self.memory_success.add(self.memory_short.samples[i].state,
+                                        self.memory_short.samples[i].action,
+                                        self.memory_short.samples[i].reward,
+                                        self.memory_short.samples[i].next_state,
+                                        self.memory_short.samples[i].done) 
+            print("Length of success memory of agent " , self.agent_number , " :" , (len(self.memory_success)))
+            
+        if len(self.memory) > self.memory.batch_size:
                 experiences = self.memory.sample() 
-                experiences_short = self.memory_short.sample() 
+                self.learn(experiences, timestep % 2 , GAMMA)
 
-                # delay update of the policy and only update every 2nd training
-                self.learn(experiences_short, timestep % 2,GAMMA, agent_number)
-                self.learn(experiences, timestep % 2 , GAMMA, agent_number)
+        if len(self.memory_success) > self.memory_success.batch_size*10:
+                experiences = self.memory_success.sample() 
+                self.learn(experiences, timestep % 2 , GAMMA)
 
-    def act(self, states, add_noise=True):
+
+    def act(self, state, add_noise=True):
         """Returns actions for given state as per current policy."""
-        states = torch.from_numpy(states).float().to(device)
-        actions = np.zeros((self.agents_size, self.action_size))
+        state = torch.from_numpy(state).float().to(device)
+        action = np.zeros(self.action_size)
         
 
         self.actor_local.eval()
         with torch.no_grad():
-            #action = self.actor_local(state).cpu().data.numpy()
-            # TODO: Comment start
-            for agent_number, state in enumerate(states):
-                #print("State = ", states)
-
-                action = self.actor_local(state).cpu().data.numpy()
-                actions[agent_number, :] = action
-            # TODO: Comment end
+            action = self.actor_local(state).cpu().data.numpy()
 
         self.actor_local.train()
 
@@ -141,7 +144,7 @@ class AgentTD3():
     def reset(self):
         self.noise.reset()
 
-    def learn(self, experiences, delay, gamma , agent_number):
+    def learn(self, experiences, delay, gamma):
         """Update policy and value parameters using given batch of experience tuples.
         Q_targets = r + γ * critic_target(next_state, actor_target(next_state))
         where:
@@ -160,12 +163,20 @@ class AgentTD3():
 
         # Get predicted next-state actions and Q values from target models
         actions_next = self.actor_target(next_states)
-        #print("Actions_Next = " , actions_next.shape)
-        #print("actions.shape = " , actions.shape)
 
+        #print("actions.shape = " , actions.shape)
+        #print("\nActions = ", actions)
+        #print("---------------------------------")
+        #print("\nActions_Next.shape = " , actions_next.shape)
+        #print("\nActions_Next = " , actions_next)
+        #t = (actions_next, actions[:,2:])
+        #print("\nModified Actions next = " , t)
+        #exit()
+        
+        
         # TODO: Comment start
         # Remark this implementation is not working with more than 2 agents, evil hardcoding...
-        if agent_number == 0:
+        if self.agent_number == 0:
             actions_next = torch.cat((actions_next, actions[:,2:]), dim=1)
         else:
             actions_next = torch.cat((actions[:,:2], actions_next), dim=1)
@@ -193,12 +204,15 @@ class AgentTD3():
         # ---------------------------- update actor ---------------------------- #
         # TD3 --> Delayed updates of the actor = policy (The delayed part)
         # Compute actor loss
+        
+        # Quick hack - always update policy
+        delay = 0
         if delay == 0:
             actions_pred = self.actor_local(states)
 
             # TODO: comment start
             # Remark this implementation is not working with more than 2 agents, evil hardcoding...
-            if agent_number == 0:
+            if self.agent_number == 0:
                 actions_pred = torch.cat((actions_pred, actions[:,2:]), dim=1)
             else:
                 actions_pred = torch.cat((actions[:,:2], actions_pred), dim=1)
@@ -234,6 +248,7 @@ class AgentTD3():
             target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
 
 
+
 class OUNoise:
     """Ornstein-Uhlenbeck process."""
 
@@ -245,7 +260,6 @@ class OUNoise:
                 theta: the speed of mean reversion
                 sigma: the volatility parameter
         """
-        self.size = size
         self.mu = mu * np.ones(size)
         self.theta = theta
         self.sigma = sigma
@@ -265,6 +279,5 @@ class OUNoise:
         """Update internal state and return it as a noise sample."""
         x = self.x_previous
         dx = self.theta * (self.mu - x) + self.sigma * np.array([random.random() for i in range(len(x))])
-        #dx = self.theta * (self.mu - x) + self.sigma * np.random.standard_normal(self.size)
         self.x_previous = x + dx
         return self.x_previous

@@ -63,7 +63,10 @@ class FifoMemory(object):
     def sample(self):
         """Simpliest uniform sampling (w/o replacement) to produce a batch.
         """
-        assert self.batch_size < len(self.samples), 'no enough samples to sample from'
+        if self.batch_size > len(self.samples):
+            return ()
+
+        #assert self.batch_size < len(self.samples), 'no enough samples to sample from'
 
         experiences = random.sample(self.samples, self.batch_size)
 
