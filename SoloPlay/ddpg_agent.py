@@ -35,7 +35,7 @@ class MADDPG:
         target_actors = [ddpg_agent.actor_target for ddpg_agent in self.adversarial_agents]
         return target_actors
 
-    def act(self, states_all_agents, noise_t):
+    def act(self, states_all_agents, noise_t=0.0):
         """
         get actions from all agents in the MADDPG object
         """

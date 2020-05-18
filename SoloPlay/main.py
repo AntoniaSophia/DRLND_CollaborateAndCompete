@@ -161,7 +161,7 @@ if __name__ == "__main__":
     parser.add_argument('--test_n_run', default=int(100), type=int)
     parser.add_argument('--epsilon', default=float(1.0), type=float)
     parser.add_argument('--epsilon_decay', default=float(.995), type=float)
-    parser.add_argument('--main_n_loop', default=int(1), type=int)
+    parser.add_argument('--main_n_loop', default=int(10), type=int)
    
     args = parser.parse_args()
 
