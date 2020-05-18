@@ -6,7 +6,8 @@ import argparse
 from tqdm import tqdm
 
 # from td3_agent import MADDPG
-from ddpg_agent import MADDPG
+from ddpg_agent import DDPGAgent
+from maddpg import MADDPG
 
 unity_environment_path = "../../UnityTennis/Tennis.exe"
 
@@ -40,8 +41,15 @@ def train(args):
         states.shape[0], state_size))
     print('The state for the first agent looks like:', states[0])
 
-    agent = MADDPG(state_size,
-                   action_size)
+    agent_1 = DDPGAgent(state_size, action_size)
+    agent_2 = DDPGAgent(state_size, action_size)
+
+    agent_1_path = '../results/ddgp_solo/00_best_model.checkpoint'
+    agent_2_path = '../results/temp/new_ddpg_model.checkpoint'
+
+    agent = MADDPG(state_size, action_size, agent_1, agent_2, False, True)
+    agent.load(agent_1_path,0)
+    #agent.load(agent_2_path,1)  
 
     total_rewards = []
     avg_scores = []
@@ -83,7 +91,7 @@ def train(args):
         if max_score <= episode_score:
             max_score = episode_score
             # save best model so far
-            agent.save(args.model_path)
+            agent.save(agent_1_path , agent_2_path)
 
         # record avg score for the latest 100 steps
         if len(total_rewards) >= args.test_n_run:
@@ -95,11 +103,12 @@ def train(args):
                 worsen_tolerance = threshold_init           # re-count tolerance
                 max_avg_score = latest_avg_score
             else:
-                if max_avg_score > 0.5:
+                if max_avg_score > 2.0:
                     worsen_tolerance -= 1                   # count worsening counts
                     print("Loaded from last best model.")
                     # continue from last best-model
-                    agent.load(args.model_path)
+                    agent.reload(agent_1_path,0)
+                    agent.reload(agent_2_path,1)
                 if worsen_tolerance <= 0:                   # earliy stop training
                     print("Early Stop Training.")
                     break
@@ -122,9 +131,16 @@ def test(args):
     states = env_info.vector_observations
     state_size = states.shape[1]
 
-    agent = MADDPG(state_size, action_size)
+    agent_1 = DDPGAgent(state_size, action_size)
+    agent_2 = DDPGAgent(state_size, action_size)
 
-    agent.load(args.model_path)
+    agent_1_path = '../results/ddgp_solo/00_best_model.checkpoint'
+    agent_2_path = '../results/ddgp_solo/01_best_model.checkpoint'
+
+    agent = MADDPG(state_size, action_size, agent_1, agent_2, False, False)
+    agent.load(agent_1_path,0)
+    agent.load(agent_2_path,1)   
+    
 
     test_scores = []
     for i_episode in tqdm(range(1, 1+args.test_n_run)):
@@ -156,8 +172,8 @@ def test(args):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_episodes', default=int(2500), type=int)
-    parser.add_argument('--model_path', default='best_model.checkpoint')
+    parser.add_argument('--num_episodes', default=int(10000), type=int)
+    parser.add_argument('--model_path', default='../results/ddgp_solo/00_best_model.checkpoint')
     parser.add_argument('--test_n_run', default=int(100), type=int)
     parser.add_argument('--epsilon', default=float(1.0), type=float)
     parser.add_argument('--epsilon_decay', default=float(.995), type=float)
@@ -166,7 +182,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     env = UnityEnvironment(file_name=unity_environment_path)
-    
+    score = train(args)
+    exit()
+
     project = {}
     project["args"] = args
     project["scores"] = []
