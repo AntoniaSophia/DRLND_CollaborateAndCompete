@@ -135,7 +135,7 @@ def test(args):
     agent_2 = DDPGAgent(state_size, action_size)
 
     agent_1_path = '../results/ddgp_solo/00_best_model.checkpoint'
-    agent_2_path = '../results/ddgp_solo/01_best_model.checkpoint'
+    agent_2_path = '../results/temp/new_ddpg_model.checkpoint'
 
     agent = MADDPG(state_size, action_size, agent_1, agent_2, False, False)
     agent.load(agent_1_path,0)
@@ -182,7 +182,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     env = UnityEnvironment(file_name=unity_environment_path)
-    score = train(args)
+    score = test(args)
     exit()
 
     project = {}
