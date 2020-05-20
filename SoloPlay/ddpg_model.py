@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 
 
-torch.manual_seed(999)
+torch.manual_seed(1)
 
 def hidden_init(layer):
     fan_in = layer.weight.data.size()[0]

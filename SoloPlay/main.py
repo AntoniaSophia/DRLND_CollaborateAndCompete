@@ -8,6 +8,7 @@ from tqdm import tqdm
 # from td3_agent import MADDPG
 from ddpg_agent import DDPGAgent
 from maddpg import MADDPG
+from td3_agent import AgentTD3
 
 unity_environment_path = "../../UnityTennis/Tennis.exe"
 
@@ -42,10 +43,12 @@ def train(args):
     print('The state for the first agent looks like:', states[0])
 
     agent_1 = DDPGAgent(state_size, action_size)
-    agent_2 = DDPGAgent(state_size, action_size)
+    #agent_2 = DDPGAgent(state_size, action_size)
+    agent_2 = AgentTD3(state_size, action_size)
 
     agent_1_path = '../results/ddgp_solo/00_best_model.checkpoint'
-    agent_2_path = '../results/temp/new_ddpg_model.checkpoint'
+    #agent_2_path = '../results/temp/new_ddpg_model_2.checkpoint'
+    agent_2_path = '../results/temp/td3_model.checkpoint'
 
     agent = MADDPG(state_size, action_size, agent_1, agent_2, False, True)
     agent.load(agent_1_path,0)
@@ -132,10 +135,12 @@ def test(args):
     state_size = states.shape[1]
 
     agent_1 = DDPGAgent(state_size, action_size)
-    agent_2 = DDPGAgent(state_size, action_size)
+    #agent_2 = DDPGAgent(state_size, action_size)
+    agent_2 = AgentTD3(state_size, action_size)
 
-    agent_1_path = '../results/ddgp_solo/00_best_model.checkpoint'
-    agent_2_path = '../results/temp/new_ddpg_model.checkpoint'
+    agent_1_path = '../results/ddgp_solo/01_best_model.checkpoint'
+    #agent_2_path = '../results/temp/new_ddpg_model.checkpoint'
+    agent_2_path = '../results/temp/td3_model.checkpoint'
 
     agent = MADDPG(state_size, action_size, agent_1, agent_2, False, False)
     agent.load(agent_1_path,0)

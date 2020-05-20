@@ -11,100 +11,22 @@ import torch.optim as optim
 
 from FifoMemory import FifoMemory
 
-BUFFER_SIZE = 10000  # replay buffer size
+BUFFER_SIZE = 1000000  # replay buffer size
 BATCH_SIZE = 64        # minibatch size
 GAMMA = 0.95            # discount factor
 TAU = 1e-3              # for soft update of target parameters
 LR_ACTOR = 1e-5         # learning rate of the actor
 LR_CRITIC = 1e-4        # learning rate of the critic
-WEIGHT_DECAY = 0.995        # L2 weight decay
+WEIGHT_DECAY = 1       # L2 weight decay
 LEARN_EVERY = 1        # learning timestep interval
-LEARN_NUM = 1          # number of learning passes
+LEARN_NUM_MEMORY = 1          # number of learning passes
+LEARN_NUM_MEMORY_SUCCESS = 2 # number of learning passes of success memory
 OU_SIGMA = 0.2          # Ornstein-Uhlenbeck noise parameter
 OU_THETA = 0.15         # Ornstein-Uhlenbeck noise parameter
-EPSILON = 1.0           # explore->exploit noise process added to act step
+EPSILON = 5.0           # explore->exploit noise process added to act step
 EPSILON_DECAY = 0.995    # decay rate for noise process
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-
-
-class MADDPG:
-    """
-    The Multi-Agent consisting of two DDPG Agents
-    """
-    def __init__(self,state_size, action_size):
-        super(MADDPG, self).__init__()
-
-        agent = AgentTD3(state_size, action_size)
-        self.adversarial_agents = [agent, agent]     # the agent self-plays with itself
-        
-    def get_actors(self):
-        """
-        get actors of all the agents in the MADDPG object
-        """
-        actors = [td3_agent.actor_local for td3_agent in self.adversarial_agents]
-        return actors
-
-    def get_target_actors(self):
-        """
-        get target_actors of all the agents in the MADDPG object
-        """
-        target_actors = [td3_agent.actor_target for td3_agent in self.adversarial_agents]
-        return target_actors
-
-    def act(self, states_all_agents, add_noise=False):
-        """
-        get actions from all agents in the MADDPG object
-        """
-        actions = [agent.act(state, add_noise) for agent, state in zip(self.adversarial_agents, states_all_agents)]
-        
-        return np.stack(actions, axis=0)
-
-    def update(self, *experiences):
-        """
-        update the critics and actors of all the agents
-        """
-        states, actions, rewards, next_states, dones, timestep = experiences
-        for agent_idx, agent in enumerate(self.adversarial_agents):
-            state = states[agent_idx,:]
-            action = actions[agent_idx,:]
-            reward = rewards[agent_idx]
-            next_state = next_states[agent_idx,:]
-            done = dones[agent_idx]
-            agent.step(state, action, reward, next_state, done, timestep)
-            
-    def save(self, path):
-        """
-        Save the model
-        """
-        agent = self.adversarial_agents[0]
-        torch.save((agent.actor_local.state_dict(), agent.critic_local.state_dict()), path)
-        
-    def load(self, path):
-        """
-        Load model and decay learning rate
-        """
-        actor_state_dict, critic_state_dict = torch.load(path)
-        agent = self.adversarial_agents[0]
-        agent.actor_local.load_state_dict(actor_state_dict)
-        agent.actor_target.load_state_dict(actor_state_dict)
-        agent.critic_local.load_state_dict(critic_state_dict)
-        agent.critic_target.load_state_dict(critic_state_dict)
-        agent.lr_actor *= agent.lr_decay
-        agent.lr_critic *= agent.lr_decay
-        for group in agent.actor_optimizer.param_groups:
-            group['lr'] = agent.lr_actor
-        for group in agent.critic_optimizer.param_groups:
-            group['lr'] = agent.lr_critic
-        
-        for i in range(1, len(self.adversarial_agents)):
-            self.adversarial_agents[i] = agent
-            
-        print("Loaded models!")
-            
-
-
 
 
 # TD3 = Twin Delayed Deep Deterministic Policy Gradient (TD3)
@@ -136,7 +58,7 @@ class MADDPG:
 class AgentTD3():
     """Interacts with and learns from the environment."""
 
-    def __init__(self, state_size, action_size, random_seed=1703):
+    def __init__(self, state_size, action_size, random_seed=1):
         """Initialize an Agent object.
 
         Params
@@ -167,27 +89,44 @@ class AgentTD3():
         # Noise process
         self.noise = OUNoise(action_size, random_seed)
 
+        self.timestep = 0
         # Replay memory
         self.memory = FifoMemory(BUFFER_SIZE, BATCH_SIZE)
         # Short term memory contains only 1/100 of the complete memory and the most recent samples
-        self.memory_short = FifoMemory(int(BUFFER_SIZE/100), int(BATCH_SIZE))
+        self.memory_success = FifoMemory(int(BUFFER_SIZE), int(BATCH_SIZE))
+        self.memory_short = FifoMemory(5, 5)
 
-    def step(self, state, action, reward, next_state, done, timestep):
+    def update_model(self, state, action, reward, next_state, done):
+        self.step(state, action, reward, next_state, done)
+
+    def step(self, state, action, reward, next_state, done):
         """Save experience in replay memory, and use random sample from buffer to learn."""
         # Save experience / reward
+        self.timestep += 1
+
         self.memory.add(state, action, reward, next_state, done)
         self.memory_short.add(state, action, reward, next_state, done)
 
-        # Learn at defined interval, if enough samples are available in memory
-        # HINT from Udacity "benchmark": learn every 20 timesteps and train 10 samples
-        if len(self.memory) > BATCH_SIZE and timestep % LEARN_EVERY == 0:
-            for _ in range(LEARN_NUM):
-                experiences = self.memory.sample() 
-                #experiences_short = self.memory_short.sample() 
+        if reward > 0.0:
+            for i in range(len(self.memory_short)):
+                self.memory_success.add(
+                    self.memory_short.samples[i].state, \
+                    self.memory_short.samples[i].action, \
+                    self.memory_short.samples[i].reward, \
+                    self.memory_short.samples[i].next_state, \
+                    self.memory_short.samples[i].done)
 
+
+        if len(self.memory) > BATCH_SIZE:
+            for i in range(LEARN_NUM_MEMORY):
+                experiences = self.memory.sample() 
                 # delay update of the policy and only update every 2nd training
-                #self.learn(experiences_short, timestep % 2,GAMMA)
                 self.learn(experiences, 0 , GAMMA)
+
+        if (len(self.memory_success) > self.memory_success.batch_size):
+            for i in range(LEARN_NUM_MEMORY_SUCCESS):
+                experiences_success = self.memory_success.sample() 
+                self.learn(experiences_success, 0 ,GAMMA)
 
     def act(self, state, add_noise=True):
         """Returns actions for given state as per current policy."""

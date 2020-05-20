@@ -60,6 +60,7 @@ class DDPGAgent:
         :experiences (Tuple[torch.Tensor]): tuple of (s, a, r, s', done) tuples 
         :gamma (float): discount factor
         """
+
         self.memory.add(state, action, reward, next_state, done)
         if not self.memory.is_ready():
             return
