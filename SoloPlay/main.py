@@ -140,11 +140,11 @@ def test(args):
 
     agent_1_path = '../results/ddgp_solo/01_best_model.checkpoint'
     #agent_2_path = '../results/temp/new_ddpg_model.checkpoint'
-    agent_2_path = '../results/temp/td3_model.checkpoint'
+    agent_2_path = '../results/td3_opponent/00_best_td3_model.checkpoint'
 
-    agent = MADDPG(state_size, action_size, agent_1, agent_2, False, False)
-    agent.load(agent_1_path,0)
-    agent.load(agent_2_path,1)   
+    agent = MADDPG(state_size, action_size, agent_2, agent_1, False, False)
+    agent.load(agent_2_path,0)
+    agent.load(agent_1_path,1)   
     
 
     test_scores = []
