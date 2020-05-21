@@ -104,6 +104,10 @@ class TD3Agent():
         # Save experience / reward
         self.timestep += 1
 
+        reached = True
+        if len(self.memory_success) < BATCH_SIZE:
+            reached = False
+
         self.memory.add(state, action, reward, next_state, done)
         self.memory_short.add(state, action, reward, next_state, done)
 
@@ -115,6 +119,11 @@ class TD3Agent():
                     self.memory_short.samples[i].reward, \
                     self.memory_short.samples[i].next_state, \
                     self.memory_short.samples[i].done)
+                    
+            self.memory_short.clear()
+
+        if reached == False and len(self.memory_success) > BATCH_SIZE:
+            print("Success memory ready for use!")
 
 
         if len(self.memory) > BATCH_SIZE:

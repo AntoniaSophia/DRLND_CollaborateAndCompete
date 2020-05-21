@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
 from collections import deque
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,6 +8,7 @@ import pandas as pd
 from unityagents import UnityEnvironment
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
+import argparse
 
 
 from maac import MAAC
@@ -27,13 +25,16 @@ def train_CollabAndCompete(env, brain_name, n_episodes, max_t, \
     """
     Params
     ======
+        env                   : the environment to be used
+        brain_name            : the name of the brain to be used
         n_episodes (int)      : maximum number of training episodes
         max_t (int)           : maximum number of timesteps per episode
         solved_score (float)  : min avg score over consecutive episodes
         consec_episodes (int) : number of consecutive episodes used to calculate score
         print_every (int)     : interval to display results
-        actor_path (str)      : directory to store actor network weights
-        critic_path (str)     : directory to store critic network weights
+        maac_agent (MAAC)     : the MAAC agent which contains agent_1 and agent_2
+        agent_1_path (str)    : directory to store the agent_1 weights
+        agent_1_path (str)    : directory to store the agent_2 weights
 
     """
 
@@ -68,7 +69,7 @@ def train_CollabAndCompete(env, brain_name, n_episodes, max_t, \
     latest_avg_score = -1
 
     # for early-stopping training if consistently worsen for 30 episodes
-    worsen_tolerance = 30
+    worsen_tolerance = 20
 
 
     # now execute up to maximum "maxEpisodes" episodes
@@ -110,7 +111,7 @@ def train_CollabAndCompete(env, brain_name, n_episodes, max_t, \
 
             # 10.Step: Add the reward of the last action-state result  
             #scores += rewards
-            scores += np.mean(rewards)
+            scores += rewards
             
             noise_t *= noise_decay
  
@@ -157,7 +158,7 @@ def train_CollabAndCompete(env, brain_name, n_episodes, max_t, \
             avg_scores.append(latest_avg_score)
 
             if max_avg_score <= latest_avg_score:           # record better results
-                worsen_tolerance = 30           # re-count tolerance
+                worsen_tolerance = 20           # re-count tolerance
                 max_avg_score = latest_avg_score
             else:
                 if max_avg_score > 2.0:
@@ -246,8 +247,6 @@ def test_CollabAndCompete(env, brain_name, agent,  runs=100):
 
 
 
-
-
 env = UnityEnvironment(file_name='../UnityTennis/Tennis.exe')
 
 # Environments contain **_brains_** which are responsible for deciding 
@@ -281,26 +280,29 @@ print('The state for the first agent looks like:', states[0])
 threshold = 0.5
 
 max_episodes = 5000
-max_t = 1000
+max_t = 100000
 threshold = 2.0
 conseq_episodes = 5
 print_every = 1
 
-train = True
+mode = True
 
-if train == True:
-    agent_1 = TD3Agent(state_size, action_size)
-    agent_2 = DDPGAgent(state_size, action_size)
+if mode == True:
+    #train(args)
+    #exit()
 
-    agent_1_path = 'results/temp/new_td3_model.checkpoint'
-    #agent_1_path = 'results/td3_opponent/00_best_td3_model.checkpoint'
 
-    agent_2_path = 'results/ddgp_solo/01_best_model.checkpoint'
+    agent_1 = DDPGAgent(state_size, action_size)
+    #agent_2 = DDPGAgent(state_size, action_size)
+    agent_2 = TD3Agent(state_size, action_size)
 
-    agent = MAAC(state_size, action_size, agent_1, agent_2, False, False)
+    agent_1_path = 'results/ddgp_solo/00_best_model.checkpoint'
+    #agent_2_path = 'results/temp/new_ddpg_model.checkpoint'
+    agent_2_path = 'results/temp/new_td3_model.checkpoint'
 
-    #agent.load(agent_1_path,0) 
-    agent.load(agent_2_path,1) 
+    agent = MAAC(state_size, action_size, agent_1, agent_2, False, True)
+    agent.load(agent_1_path,0)
+
 
     df = train_CollabAndCompete(env, brain_name, max_episodes, max_t, threshold, \
                                     conseq_episodes, print_every, agent, agent_1_path, agent_2_path)
@@ -309,7 +311,7 @@ if train == True:
 
 
 
-if train == False:
+if mode == False:
     agent_1 = TD3Agent(state_size, action_size)
     agent_2 = DDPGAgent(state_size, action_size)
 
