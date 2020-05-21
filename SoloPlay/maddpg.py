@@ -3,7 +3,7 @@ import numpy as np
 
 class MADDPG:
     """
-    The Multi-Agent consisting of two DDPG Agents
+    The Multi-Agent consisting of two Actor-Critic based agents
     """
     def __init__(self, state_size, action_size, agent_1, agent_2, \
                 train_agent_1=True, train_agent_2=True):
