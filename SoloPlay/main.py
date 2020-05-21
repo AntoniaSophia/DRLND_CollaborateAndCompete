@@ -7,8 +7,8 @@ from tqdm import tqdm
 
 # from td3_agent import MADDPG
 from ddpg_agent import DDPGAgent
-from maddpg import MADDPG
-from td3_agent import AgentTD3
+from maac import MAAC
+from td3_agent import TD3Agent
 
 unity_environment_path = "../../UnityTennis/Tennis.exe"
 
@@ -44,13 +44,13 @@ def train(args):
 
     agent_1 = DDPGAgent(state_size, action_size)
     #agent_2 = DDPGAgent(state_size, action_size)
-    agent_2 = AgentTD3(state_size, action_size)
+    agent_2 = TD3Agent(state_size, action_size)
 
     agent_1_path = '../results/ddgp_solo/00_best_model.checkpoint'
     #agent_2_path = '../results/temp/new_ddpg_model_2.checkpoint'
-    agent_2_path = '../results/temp/td3_model.checkpoint'
+    agent_2_path = '../results/temp/new_td3_model.checkpoint'
 
-    agent = MADDPG(state_size, action_size, agent_1, agent_2, False, True)
+    agent = MAAC(state_size, action_size, agent_1, agent_2, False, True)
     agent.load(agent_1_path,0)
     #agent.load(agent_2_path,1)  
 
@@ -80,7 +80,7 @@ def train(args):
             next_states = env_inst.vector_observations       # get the next state
             rewards = env_inst.rewards                       # get the reward
             dones = env_inst.local_done                      # see if episode has finished
-            agent.update(states, actions, rewards, next_states, dones, i_episode)
+            agent.step(states, actions, rewards, next_states, dones, i_episode)
 
             noise_t *= noise_decay
             scores += rewards                                # update scores
@@ -136,15 +136,14 @@ def test(args):
 
     agent_1 = DDPGAgent(state_size, action_size)
     #agent_2 = DDPGAgent(state_size, action_size)
-    agent_2 = AgentTD3(state_size, action_size)
+    agent_2 = TD3Agent(state_size, action_size)
 
-    agent_1_path = '../results/ddgp_solo/01_best_model.checkpoint'
-    #agent_2_path = '../results/temp/new_ddpg_model.checkpoint'
-    agent_2_path = '../results/td3_opponent/00_best_td3_model.checkpoint'
+    agent_1_path = '../results/td3_opponent/00_best_td3_model.checkpoint'
+    agent_2_path = '../results/ddgp_solo/01_best_model.checkpoint'
 
-    agent = MADDPG(state_size, action_size, agent_2, agent_1, False, False)
-    agent.load(agent_2_path,0)
-    agent.load(agent_1_path,1)   
+    agent = MAAC(state_size, action_size, agent_2, agent_1, False, False)
+    agent.load(agent_1_path,0)
+    agent.load(agent_2_path,1)   
     
 
     test_scores = []
@@ -187,7 +186,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     env = UnityEnvironment(file_name=unity_environment_path)
-    score = test(args)
+    score = train(args)
     exit()
 
     project = {}

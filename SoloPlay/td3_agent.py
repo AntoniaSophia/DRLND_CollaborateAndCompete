@@ -2,7 +2,7 @@ import numpy as np
 import random
 from collections import namedtuple, deque
 
-from model_td3 import Actor, Critic
+from td3_model import Actor, Critic
 import torch.nn as nn
 import torch
 from torch.autograd import Variable
@@ -55,7 +55,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 #    - Using a pair of critic networks (The twin part of the title)
 #    - Delayed updates of the actor (The delayed part)
 #    - Action noise regularisation (This part didn’t make it to the title :/ )
-class AgentTD3():
+class TD3Agent():
     """Interacts with and learns from the environment."""
 
     def __init__(self, state_size, action_size, random_seed=1):

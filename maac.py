@@ -1,14 +1,14 @@
 import torch
 import numpy as np
 
-class MADDPG:
+class MAAC:
     """
     The Multi-Agent consisting of two Actor-Critic based agents
     """
     def __init__(self, state_size, action_size, agent_1, agent_2, \
                 train_agent_1=True, train_agent_2=True):
 
-        super(MADDPG, self).__init__()
+        super(MAAC, self).__init__()
 
         self.train_agent_1 = train_agent_1
         self.train_agent_2 = train_agent_2
@@ -16,18 +16,24 @@ class MADDPG:
         #agent = DDPGAgent(state_size, action_size)
         self.adversarial_agents = [agent_1, agent_2]     # the agent self-plays with itself
         
+    def reset(self):
+        """
+        reset all agents
+        """
+        [next_agent.reset for next_agent in self.adversarial_agents]
+
     def get_actors(self):
         """
         get actors of all the agents in the MADDPG object
         """
-        actors = [ddpg_agent.actor_local for ddpg_agent in self.adversarial_agents]
+        actors = [next_agent.actor_local for next_agent in self.adversarial_agents]
         return actors
 
     def get_target_actors(self):
         """
         get target_actors of all the agents in the MADDPG object
         """
-        target_actors = [ddpg_agent.actor_target for ddpg_agent in self.adversarial_agents]
+        target_actors = [next_agent.actor_target for next_agent in self.adversarial_agents]
         return target_actors
 
     def act(self, states_all_agents, noise_t=0.0):
@@ -50,9 +56,9 @@ class MADDPG:
 
         return np.stack(actions, axis=0)
 
-    def update(self, *experiences):
+    def step(self, *experiences):
         """
-        update the critics and actors of all the agents
+        execute learning step and update the critics and actors of all the agents
         """
         states, actions, rewards, next_states, dones, i_episode = experiences
         for agent_idx, agent in enumerate(self.adversarial_agents):
