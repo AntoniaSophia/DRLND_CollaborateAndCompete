@@ -55,10 +55,8 @@ def train_CollabAndCompete(env, brain_name, n_episodes, max_t, \
 
     agents = []
     for agent_number in range(num_agents):
-        new_agent = AgentTD3(state_size=state_size, action_size=action_size,
-                             agents_size=1 , random_seed=1)
-
-        agents.append(new_agent) 
+        new_agent = AgentTD3(state_size, action_size, agent_number , random_seed=1)
+        agents.append(new_agent)
 
 
     mean_scores = []                               # list of mean scores from each episode
@@ -97,7 +95,9 @@ def train_CollabAndCompete(env, brain_name, n_episodes, max_t, \
         for t in range(max_t):
             # 5.Step: Calculate the next action from agent with noise
             #actions = agent.act(states, add_noise=True)
-            actions = [agent.act(states, add_noise=True) for agent in agents]        
+            actions = [agent.act(states, add_noise=True) for agent in agents]    
+
+            #print("Actions = " , actions)    
             actions = np.reshape(actions, (1, num_agents*action_size))
 
             # 6.Step: Tell the environment about this action and get result
@@ -122,11 +122,10 @@ def train_CollabAndCompete(env, brain_name, n_episodes, max_t, \
             # save experience to replay buffer, perform learning step at defined interval
 #            for state, action, reward, next_state, done in zip(states, actions, rewards, next_states, dones):
 #                agent.step(state, action, reward, next_state, done, t)
-            #for i in enumerate(agents):
-            #    for state, action, reward, next_state, done in zip(states, actions, rewards, next_states, dones):
-            #        agent.step(state, action, reward, next_state, done, t, i)
-            for i, agent in enumerate(agents):
-                agent.step(states, actions, rewards[i], next_states, dones, t,  i)
+            for i in range(num_agents):
+                #for state, action, reward, next_state, done in zip(states, actions, rewards, next_states, dones):
+                #    agents[i].step(state, action, reward, next_state, done, t, i)
+                agents[i].step(states, actions, rewards[i], next_states, dones, t)
 
             # 12.Step: Continue while-loop with next_state as current state            
             states = next_states
@@ -142,6 +141,10 @@ def train_CollabAndCompete(env, brain_name, n_episodes, max_t, \
         scores_window.append(mean_scores[-1])         # save mean score to window
         moving_avgs.append(np.mean(scores_window))    # save moving average
 
+        if np.max(scores) > best_score:
+            best_score = np.max(scores)
+
+
         df.loc[i_episode-1] = [i_episode] + list([duration, np.min(scores),
                                                   np.max(scores),
                                                   np.std(scores),
@@ -149,21 +152,26 @@ def train_CollabAndCompete(env, brain_name, n_episodes, max_t, \
 
         # 16.Step: Print results every print_every episodes 
         if i_episode % print_every == 0:
-            print('\rEpisode {} ({} sec)  -- \tMin: {:.1f}\tMax: {:.1f}\tMean: {:.1f}\tMov. Avg: {:.1f}'.format(
-                  i_episode, round(duration), min_scores[-1], max_scores[-1], mean_scores[-1], moving_avgs[-1]))
+            print('\rEpisode {} ({} sec)  -- \tMin: {:.4f}\tMax: {:.4f}\tMean: {:.4f}\tBest: {:.4f} Mov. Avg: {:.4f}'.format(
+                  i_episode, round(duration), min_scores[-1], max_scores[-1], mean_scores[-1], best_score , moving_avgs[-1]))
 
 
         # 17.Step: save actor and critic in case a new best score has been encountered 
         if mean_scores[-1] > best_score:
-            torch.save(agent.actor_local.state_dict(), actor_path)
-            torch.save(agent.critic_local.state_dict(), critic_path)
+            for i in range(num_agents):
+                pp = "_" + str(i) + "_" + postfix
+                torch.save(agents[i].actor_local.state_dict(), actor_path + pp)
+                torch.save(agents[i].critic_local.state_dict(), critic_path + pp)
 
         # 18.Step: In case the performance "threshold" is exceeded --> stop and save the current agents neural network
         if moving_avgs[-1] >= solved_score and i_episode >= consec_episodes:
             print('\nEnvironment SOLVED in {} episodes!\tMoving Average ={:.1f} over last {} episodes'.format(
                 i_episode-consec_episodes, moving_avgs[-1], consec_episodes))
-            torch.save(agent.actor_local.state_dict(), actor_path)
-            torch.save(agent.critic_local.state_dict(), critic_path)
+
+            for i in range(num_agents):
+                pp = "_" + str(i) + "_" + postfix
+                torch.save(agents[i].actor_local.state_dict(), actor_path + pp)
+                torch.save(agents[i].critic_local.state_dict(), critic_path + pp)
     return df
 
 
@@ -176,8 +184,8 @@ def plot_minmax(df):
     """
     ax = df.plot(x='episode', y='mean')
     plt.fill_between(x='episode', y1='min', y2='max', color='lightgrey', data=df)
-    x_coordinates = [0, 150]
-    y_coordinates = [30, 30]
+    x_coordinates = [0, 5000]
+    y_coordinates = [3, 3]
     plt.plot(x_coordinates, y_coordinates, color='red')
     plt.show()
 
@@ -289,10 +297,10 @@ env_info = env.reset(train_mode=True)[brain_name]
 
 
 # Set the minimum score the agent has to reach in order to solve this task
-threshold = 38.0
+threshold = 0.5
 
 # Set the maximum number of episodes which the agent 
-max_episodes = 1000
+max_episodes = 2500
 max_t = 10000
 
 print_every = 1
