@@ -20,7 +20,7 @@ LR_CRITIC = 1e-4        # learning rate of the critic
 WEIGHT_DECAY = 1       # L2 weight decay
 LEARN_EVERY = 1        # learning timestep interval
 LEARN_NUM_MEMORY = 1          # number of learning passes
-LEARN_NUM_MEMORY_SUCCESS = 2 # number of learning passes of success memory
+LEARN_NUM_MEMORY_SUCCESS = 3 # number of learning passes of success memory
 OU_SIGMA = 0.2          # Ornstein-Uhlenbeck noise parameter
 OU_THETA = 0.15         # Ornstein-Uhlenbeck noise parameter
 EPSILON = 5.0           # explore->exploit noise process added to act step
@@ -94,7 +94,7 @@ class TD3Agent():
         self.memory = FifoMemory(BUFFER_SIZE, BATCH_SIZE)
         # Short term memory contains only 1/100 of the complete memory and the most recent samples
         self.memory_success = FifoMemory(int(BUFFER_SIZE), int(BATCH_SIZE))
-        self.memory_short = FifoMemory(5, 5)
+        self.memory_short = FifoMemory(10, 10)
 
     def update_model(self, state, action, reward, next_state, done):
         self.step(state, action, reward, next_state, done)
