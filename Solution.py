@@ -285,7 +285,7 @@ threshold = 2.0
 conseq_episodes = 5
 print_every = 1
 
-mode = True
+mode = False
 
 if mode == True:
     #train(args)

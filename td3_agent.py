@@ -89,11 +89,13 @@ class TD3Agent():
         # Noise process
         self.noise = OUNoise(action_size, random_seed)
 
-        self.timestep = 0
         # Replay memory
         self.memory = FifoMemory(BUFFER_SIZE, BATCH_SIZE)
-        # Short term memory contains only 1/100 of the complete memory and the most recent samples
+
+        # Success memory contains only the last 10 samples which led to a positive reward
         self.memory_success = FifoMemory(int(BUFFER_SIZE), int(BATCH_SIZE))
+
+        # Rolling sample memory of last 10 samples
         self.memory_short = FifoMemory(10, 10)
 
     def update_model(self, state, action, reward, next_state, done):
@@ -101,8 +103,6 @@ class TD3Agent():
 
     def step(self, state, action, reward, next_state, done):
         """Save experience in replay memory, and use random sample from buffer to learn."""
-        # Save experience / reward
-        self.timestep += 1
 
         reached = True
         if len(self.memory_success) < BATCH_SIZE:
@@ -111,6 +111,7 @@ class TD3Agent():
         self.memory.add(state, action, reward, next_state, done)
         self.memory_short.add(state, action, reward, next_state, done)
 
+        # Fill the success memory in case this agents receives positive reward
         if reward > 0.0:
             for i in range(len(self.memory_short)):
                 self.memory_success.add(
@@ -125,13 +126,14 @@ class TD3Agent():
         if reached == False and len(self.memory_success) > BATCH_SIZE:
             print("Success memory ready for use!")
 
-
+        # Train with the complete replay memory
         if len(self.memory) > BATCH_SIZE:
             for i in range(LEARN_NUM_MEMORY):
                 experiences = self.memory.sample() 
                 # delay update of the policy and only update every 2nd training
                 self.learn(experiences, 0 , GAMMA)
 
+        # Train with the success replay memory
         if (len(self.memory_success) > self.memory_success.batch_size):
             for i in range(LEARN_NUM_MEMORY_SUCCESS):
                 experiences_success = self.memory_success.sample() 
